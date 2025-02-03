@@ -1,6 +1,8 @@
 const grid = document.querySelector('.grid');
 const spanPlayer = document.querySelector('.player');
-const timer = document.querySelector('.timer')
+const timer = document.querySelector('.timer');
+const score = document.querySelector('.score');
+
 const characters = [
     'beth',
     'jerry',
@@ -22,13 +24,27 @@ const createElement = (tag, className) => {
 
 let firstCard = '';
 let secondCard = '';
+let attempts = 0;
+let totalPoints = 1000; // Pontuação inicial
+let bonusPoints = 0;
+let startTime;
 
 const checkEndGame = () => {
     const disabledCards = document.querySelectorAll('.disabled-card');
 
     if (disabledCards.length === 20) {
         clearInterval(this.loop);
-        alert(`Parabéns, ${spanPlayer.innerHTML}! Seu tempo foi: ${timer.innerHTML}`);
+        calculateTimeBonus();
+        let finalScore = calculatePoints();
+        
+        // Salva a pontuação do jogador no localStorage
+        const players = JSON.parse(localStorage.getItem('players')) || [];
+        const timeElapsed = timer.innerHTML;
+        players.push({ name: spanPlayer.innerHTML, score: finalScore, timer: timeElapsed });
+        localStorage.setItem('players', JSON.stringify(players));
+
+        // Redireciona para a tela de finalização
+        window.location = '../pages/end.html';
     }
 }
 
@@ -57,7 +73,8 @@ const checkCards = () => {
 
         }, 500);
     }
-
+    attempts++;
+    updateScore();
 }
 
 const revealCard = ({ target }) => {
@@ -97,11 +114,11 @@ const createCard = (character) => {
 
 const loadGame = () => {
 
-    const duplicateCharactes = [...characters, ...characters];
+    const duplicateCharacters = [...characters, ...characters];
 
-    const shuffleadArray = duplicateCharactes.sort(() => Math.random() - 0.5);
+    const shuffledArray = duplicateCharacters.sort(() => Math.random() - 0.5);
 
-    shuffleadArray.forEach((character) => {
+    shuffledArray.forEach((character) => {
 
         const card = createCard(character);
         grid.appendChild(card);
@@ -110,20 +127,38 @@ const loadGame = () => {
 }
 
 const startTimer = () => {
-    
+    startTime = Date.now();
     this.loop = setInterval(() => {
-
         const currentTime = +timer.innerHTML;
         timer.innerHTML = currentTime + 1;
+    }, 1000);
+}
 
-    }, 1000)
+const calculatePoints = () => {
+    totalPoints -= attempts * 10;
+    totalPoints += bonusPoints;
+    return totalPoints;
+}
+
+const calculateTimeBonus = () => {
+    let timeElapsed = (Date.now() - startTime) / 1000; // Tempo em segundos
+    if (timeElapsed <= 60) {
+        bonusPoints = 500;
+    } else if (timeElapsed <= 120) {
+        bonusPoints = 300;
+    } else {
+        bonusPoints = 100;
+    }
+}
+
+const updateScore = () => {
+    let currentScore = totalPoints - attempts * 10;
+    score.innerHTML = `Pontuação: ${currentScore}`;
 }
 
 window.onload = () => {
-
-    spanPlayer.innerHTML = localStorage.getItem('player');
+    spanPlayer.innerHTML = localStorage.getItem('player') || "Jogador";
     startTimer();
     loadGame();
+    score.innerHTML = `Pontuação: ${totalPoints}`;
 }
-
-
