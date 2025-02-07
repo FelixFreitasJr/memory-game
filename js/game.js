@@ -1,20 +1,32 @@
 const grid = document.querySelector('.grid');
 const spanPlayer = document.querySelector('.player');
 const timer = document.querySelector('.timer');
+const pauseButton = document.querySelector('.pause-btn');
 const score = document.querySelector('.score');
 
-const characters = [
-    'beth',
-    'jerry',
-    'jessica',
-    'morty',
-    'pessoa-passaro',
-    'pickle-rick',
-    'rick',
-    'summer',
-    'meeseeks',
-    'scroopy',
-];
+const charactersByLevel = {
+    1: ['beth', 'jerry', 'jessica', 'morty', 'pessoa-passaro', 'pickle-rick', 'rick', 'summer', 'meeseeks', 'scroopy'], // rick and morry
+    2: ['amy', 'bender', 'conrad', 'dottor', 'fry', 'leela', 'mamma', 'mordicchio', 'professor', 'zapp'], // futurama
+    3: ['abraham', 'bart', 'homer', 'lisa', 'maggie', 'marge', 'milhouse', 'mona', 'patty', 'selma'], // os simpsons
+    4: ['brian', 'Chris', 'joe', 'lois', 'Meg', 'Peter', 'quagmire', 'stewie', 'John', 'mike'], // family guy
+    5: ['Roger', 'Francine', 'Stan', 'Steve', 'Hayley', 'Klaus', 'Roger2', 'Roger3', 'Roger4', 'Roger5'] // american dad
+};
+
+const timePerLevel = 30; // 30 segundos por nível adicional
+let totalTime = 160; // 2 minutos de tempo inicial
+
+for (let i = 1; i <= Object.keys(charactersByLevel).length; i++) {
+    totalTime += timePerLevel; // Adiciona 30 segundos para cada nível
+}
+
+let intervalId;
+let isPaused = false;
+
+let currentLevel = 1;
+let firstCard = '';
+let secondCard = '';
+let attempts = 0;
+let totalPoints = 0;
 
 const createElement = (tag, className) => {
     const element = document.createElement(tag);
@@ -22,29 +34,37 @@ const createElement = (tag, className) => {
     return element;
 }
 
-let firstCard = '';
-let secondCard = '';
-let attempts = 0;
-let totalPoints = 1000; // Pontuação inicial
-let bonusPoints = 0;
-let startTime;
+const calculateFinalPoints = () => {
+    let finalScore = totalPoints;
+    for (let i = 1; i <= Object.keys(charactersByLevel).length; i++) {
+        finalScore += 10 * i; // Ajuste essa lógica conforme necessário
+    }
+    return finalScore;
+}
+
+const savePlayer = (name, score, time) => {
+    const players = JSON.parse(localStorage.getItem('players')) || [];
+    players.push({ name, score, time });
+    localStorage.setItem('players', JSON.stringify(players));
+}
 
 const checkEndGame = () => {
     const disabledCards = document.querySelectorAll('.disabled-card');
 
-    if (disabledCards.length === 20) {
-        clearInterval(this.loop);
-        calculateTimeBonus();
-        let finalScore = calculatePoints();
-        
-        // Salva a pontuação do jogador no localStorage
-        const players = JSON.parse(localStorage.getItem('players')) || [];
-        const timeElapsed = timer.innerHTML;
-        players.push({ name: spanPlayer.innerHTML, score: finalScore, timer: timeElapsed });
-        localStorage.setItem('players', JSON.stringify(players));
+    if (disabledCards.length === charactersByLevel[currentLevel].length * 2) {
+        // Verificar se há próximo nível
+        if (charactersByLevel[currentLevel + 1]) {
+            currentLevel++;
+            loadGame(currentLevel);
+            updateBackground(currentLevel);
+        } else {
+            // Calcular a pontuação final e salvar
+            const finalPoints = calculateFinalPoints();
+            savePlayer(spanPlayer.innerHTML, finalPoints, timer.innerHTML);
 
-        // Redireciona para a tela de finalização
-        window.location = '../pages/end.html';
+            // Jogo finalizado com sucesso
+            window.location = '../pages/end.html';
+        }
     }
 }
 
@@ -53,35 +73,27 @@ const checkCards = () => {
     const secondCharacter = secondCard.getAttribute('data-character');
 
     if (firstCharacter === secondCharacter) {
-
         firstCard.firstChild.classList.add('disabled-card');
         secondCard.firstChild.classList.add('disabled-card');
-
         firstCard = '';
         secondCard = '';
-
+        totalPoints += 10 * currentLevel; // Pontos por acerto baseado no nível
         checkEndGame();
-
     } else {
         setTimeout(() => {
-
             firstCard.classList.remove('reveal-card');
             secondCard.classList.remove('reveal-card');
-
             firstCard = '';
             secondCard = '';
-
         }, 500);
+        totalPoints -= 5; // Penalidade por erro
     }
     attempts++;
     updateScore();
 }
 
 const revealCard = ({ target }) => {
-
-    if (target.parentNode.className.includes('reveal-card')) {
-        return;
-    }
+    if (target.parentNode.className.includes('reveal-card') || isPaused) return;
 
     if (firstCard === '') {
         target.parentNode.classList.add('reveal-card');
@@ -89,19 +101,17 @@ const revealCard = ({ target }) => {
     } else if (secondCard === '') {
         target.parentNode.classList.add('reveal-card');
         secondCard = target.parentNode;
-
         checkCards();
     }
-
 }
 
-const createCard = (character) => {
-
+const createCard = (character, level) => {
     const card = createElement('div', 'card');
     const front = createElement('div', 'face front');
     const back = createElement('div', 'face back');
 
-    front.style.backgroundImage = `url('../img/${character}.png')`;
+    front.style.backgroundImage = `url('../img/lv${level}/${character}.png')`;
+    back.style.backgroundImage = `url('../img/lv${level}/back.png')`;
 
     card.appendChild(front);
     card.appendChild(back);
@@ -112,53 +122,75 @@ const createCard = (character) => {
     return card;
 }
 
-const loadGame = () => {
-
+const loadGame = (level = 1) => {
+    const characters = charactersByLevel[level] || [];
+    if (characters.length === 0) {
+        console.error(`Nenhum personagem definido para o nível ${level}`);
+        return;
+    }
     const duplicateCharacters = [...characters, ...characters];
-
     const shuffledArray = duplicateCharacters.sort(() => Math.random() - 0.5);
 
+    grid.innerHTML = ''; // Limpar a grade anterior
+
     shuffledArray.forEach((character) => {
-
-        const card = createCard(character);
+        const card = createCard(character, level);
         grid.appendChild(card);
-
     });
 }
 
+const updateBackground = (level) => {
+    document.body.style.backgroundImage = `url('../img/lv${level}/bg.jpg')`;
+}
+
 const startTimer = () => {
-    startTime = Date.now();
-    this.loop = setInterval(() => {
-        const currentTime = +timer.innerHTML;
-        timer.innerHTML = currentTime + 1;
+    intervalId = setInterval(() => {
+        if (!isPaused) {
+            totalTime--;
+            const minutes = Math.floor(totalTime / 60);
+            const seconds = totalTime % 60;
+            timer.innerHTML = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+            if (totalTime <= 0) {
+                clearInterval(intervalId);
+                alert('Tempo esgotado! Fim de jogo.');
+                
+                // Salva os dados do jogador antes de redirecionar
+                const finalPoints = calculateFinalPoints();
+                savePlayer(spanPlayer.innerHTML, finalPoints, timer.innerHTML);
+                
+                window.location = '../pages/end.html';
+            }
+        }
     }, 1000);
 }
 
 const calculatePoints = () => {
-    totalPoints -= attempts * 10;
-    totalPoints += bonusPoints;
-    return totalPoints;
-}
-
-const calculateTimeBonus = () => {
-    let timeElapsed = (Date.now() - startTime) / 1000; // Tempo em segundos
-    if (timeElapsed <= 60) {
-        bonusPoints = 500;
-    } else if (timeElapsed <= 120) {
-        bonusPoints = 300;
-    } else {
-        bonusPoints = 100;
-    }
+    totalPoints += totalTime * currentLevel; // Adicionar bônus baseado no tempo restante e nível
 }
 
 const updateScore = () => {
-    let currentScore = totalPoints - attempts * 10;
-    score.innerHTML = `Pontuação: ${currentScore}`;
+    score.innerHTML = `Pontuação: ${totalPoints}`;
+}
+
+const togglePause = () => {
+    isPaused = !isPaused;
+    if (isPaused) {
+        clearInterval(intervalId);
+        setTimeout(() => {
+            alert('Jogo pausado! Clique em "OK" para retomar.');
+            isPaused = false;
+            startTimer(); // Reiniciar o timer
+        }, 100);
+    }
 }
 
 window.onload = () => {
     spanPlayer.innerHTML = localStorage.getItem('player') || "Jogador";
+    loadGame(currentLevel);
+    updateBackground(currentLevel);
     startTimer();
-    loadGame();
-    score.innerHTML = `Pontuação: ${totalPoints}`;
+    updateScore();
 }
+
+pauseButton.addEventListener('click', togglePause);

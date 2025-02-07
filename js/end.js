@@ -25,7 +25,7 @@ players.forEach(player => {
     row.innerHTML = `
         <td>${player.name}</td>
         <td>${player.score}</td>
-        <td>${player.timer}</td>
+        <td>${player.time}</td>
     `;
     playersList.appendChild(row);
 });

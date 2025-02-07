@@ -1,20 +1,12 @@
 body{
-    background-image: url('../img/bg.jpg');
-    background-size: cover;
-}
-
-@media screen and (max-width: 700px){
-body{
-    background-image: url('../img/bg-mobille.jpg');
-    background-size: cover;
-}
+    background-image: url('../img/lv1/bg.jpg');
+    background-size:cover;
 }
 
 main {
     display: flex;
     flex-direction: column;
     width: 100%;
-    min-height: 100vh;
     align-items: center;
     justify-content: center;
     padding: 9px 10px 10px 10px;
@@ -68,7 +60,7 @@ header {
 }
 
 .back {
-    background-image: url(../img/back.png);
+    background-image: url(../img/lv1/back.png);
     backface-visibility: hidden;
 }
 
